@@ -1,0 +1,18 @@
+# Datasets
+data/
+data_light/
+
+# Java compilation
+*.class
+*.jar
+
+# Hadoop outputs
+output/
+input/
+
+# IDE
+.vscode/
+.idea/
+
+# macOS
+.DS_Store

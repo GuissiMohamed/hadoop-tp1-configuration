@@ -1,329 +1,416 @@
-# Hadoop TP1 — Installation et configuration
+# Hadoop TP1 — Installation, configuration et WordCount
 
-## 📌 Présentation
+TP d'introduction à **Hadoop**, **HDFS**, **YARN** et **MapReduce**.  
+Ce dépôt documente l'installation d'un environnement Hadoop pseudo-distribué sur macOS ainsi que les exercices de développement Java et d'analyse des performances.
 
-Ce dépôt contient les étapes d'installation et de configuration d'un environnement Hadoop pseudo-distribué sur macOS Intel, dans le cadre du TP1 d'introduction à MapReduce et Hadoop.
+## Environnement
 
-L'objectif est de disposer d'un environnement local fonctionnel permettant d'utiliser HDFS, YARN et MapReduce.
+| Élément | Version / configuration |
+| ------- | ----------------------- |
+| Système | macOS Intel (x86_64)    |
+| Java    | Temurin JDK 17          |
+| Hadoop  | 3.5.0                   |
+| Mode    | Pseudo-distribué        |
+| Shell   | Zsh                     |
 
-## 🖥️ Environnement
+## Structure du dépôt
 
-- **OS :** macOS
-- **Architecture :** Intel x86_64
-- **Java :** Temurin JDK 17
-- **Hadoop :** 3.5.0
-- **Mode :** Pseudo-distribué
-- **Shell :** Zsh
+```text
+hadoop-tp1-configuration/
+├── configuration/       # Configuration Hadoop
+├── src/
+│   └── WordCount.java   # Programme MapReduce
+├── README.md
+└── .gitignore
+```
 
-## 1. Vérification de Java
+Les datasets (`data_light/`), fichiers compilés (`.class`), archives JAR et résultats Hadoop ne sont pas versionnés.
 
-Vérification de la version installée :
+# Partie A — Installation et configuration
+
+## 1. Java et Hadoop
+
+Vérification de Java :
 
 ```bash
 java -version
 ```
 
-Configuration de Java 17 :
+Configuration dans `~/.zshrc` :
 
 ```bash
 export JAVA_HOME=$(/usr/libexec/java_home -v 17)
-```
-
-## 2. Installation de Hadoop
-
-Téléchargement de Hadoop 3.5.0 :
-
-```bash
-curl -L -O https://dlcdn.apache.org/hadoop/common/hadoop-3.5.0/hadoop-3.5.0.tar.gz
-```
-
-Extraction de l'archive :
-
-```bash
-tar -xzf hadoop-3.5.0.tar.gz
-```
-
-Hadoop est installé dans :
-
-```text
-~/Applications/hadoop-3.5.0
-```
-
-## 3. Configuration des variables d'environnement
-
-Modification du fichier Zsh :
-
-```bash
-nano ~/.zshrc
-```
-
-Ajout des variables :
-
-```bash
-# Java 17
-export JAVA_HOME=$(/usr/libexec/java_home -v 17)
-
-# Hadoop
 export HADOOP_HOME="$HOME/Applications/hadoop-3.5.0"
-
-# PATH
 export PATH="$JAVA_HOME/bin:$HADOOP_HOME/bin:$HADOOP_HOME/sbin:$PATH"
 ```
 
-Chargement de la configuration :
+Recharger les variables :
 
 ```bash
 source ~/.zshrc
-```
-
-Vérification :
-
-```bash
-echo $JAVA_HOME
-echo $HADOOP_HOME
 hadoop version
 ```
 
-## 4. Configuration SSH localhost
+## 2. Configuration Hadoop
 
-Activation de la connexion SSH locale depuis les paramètres macOS.
+Les fichiers de configuration utilisés :
 
-Configuration de l'authentification par clé :
+- `core-site.xml` : adresse HDFS (`hdfs://localhost:9001`).
+- `hdfs-site.xml` : stockage HDFS et réplication.
+- `mapred-site.xml` : MapReduce sur YARN.
+- `yarn-site.xml` : configuration YARN.
+- `hadoop-env.sh` : configuration de Java.
 
-```bash
-cat ~/.ssh/id_ed25519.pub >> ~/.ssh/authorized_keys
-chmod 600 ~/.ssh/authorized_keys
-chmod 700 ~/.ssh
-```
+Le port **9001** a été choisi car le port 9000 était occupé.
 
-Test de connexion :
-
-```bash
-ssh localhost
-```
-
-La connexion doit fonctionner sans demander de mot de passe.
-
-## 5. Configuration Hadoop
-
-Les fichiers de configuration sont situés dans :
-
-```text
-$HADOOP_HOME/etc/hadoop/
-```
-
-### core-site.xml
-
-Configuration du NameNode :
-
-```xml
-<configuration>
-    <property>
-        <name>fs.defaultFS</name>
-        <value>hdfs://localhost:9001</value>
-    </property>
-</configuration>
-```
-
-Le port 9001 est utilisé car le port 9000 était déjà occupé par PHP-FPM sur la machine.
-
-### hdfs-site.xml
-
-Configuration du stockage HDFS :
-
-```xml
-<configuration>
-
-    <property>
-        <name>dfs.replication</name>
-        <value>1</value>
-    </property>
-
-    <property>
-        <name>dfs.namenode.name.dir</name>
-        <value>file:///Users/guississ/hadoop_data/namenode</value>
-    </property>
-
-    <property>
-        <name>dfs.datanode.data.dir</name>
-        <value>file:///Users/guississ/hadoop_data/datanode</value>
-    </property>
-
-</configuration>
-```
-
-### mapred-site.xml
-
-Configuration de MapReduce avec YARN :
-
-```xml
-<configuration>
-    <property>
-        <name>mapreduce.framework.name</name>
-        <value>yarn</value>
-    </property>
-</configuration>
-```
-
-### yarn-site.xml
-
-Configuration du service auxiliaire nécessaire à MapReduce :
-
-```xml
-<configuration>
-    <property>
-        <name>yarn.nodemanager.aux-services</name>
-        <value>mapreduce_shuffle</value>
-    </property>
-</configuration>
-```
-
-### hadoop-env.sh
-
-Configuration de Java :
-
-```bash
-export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home
-```
-
-## 6. Création des dossiers de stockage
-
-```bash
-mkdir -p ~/hadoop_data/namenode
-mkdir -p ~/hadoop_data/datanode
-```
-
-Ces dossiers sont utilisés pour stocker :
-
-- Les métadonnées du NameNode
-- Les blocs de données du DataNode
-
-## 7. Formatage du NameNode
-
-Initialisation du système de fichiers HDFS :
-
-```bash
-hdfs namenode -format
-```
-
-⚠️ Cette commande est normalement exécutée uniquement lors de l'initialisation du NameNode.
-
-## 8. Démarrage de HDFS
+## 3. Démarrage et vérification
 
 ```bash
 start-dfs.sh
-```
-
-Vérification des processus :
-
-```bash
-jps
-```
-
-Processus attendus :
-
-- NameNode
-- DataNode
-- SecondaryNameNode
-
-## 9. Démarrage de YARN
-
-```bash
 start-yarn.sh
-```
-
-Processus attendus :
-
-- ResourceManager
-- NodeManager
-
-## 10. Vérification du cluster
-
-Commande :
-
-```bash
 jps
-```
-
-Les principaux processus attendus :
-
-```text
-NameNode
-DataNode
-SecondaryNameNode
-ResourceManager
-NodeManager
-```
-
-Test HDFS :
-
-```bash
 hdfs dfs -ls /
 ```
 
-## 11. Interfaces Web
+Interfaces Web :
 
-### NameNode
+| Service         | URL                   |
+| --------------- | --------------------- |
+| NameNode        | http://localhost:9870 |
+| ResourceManager | http://localhost:8088 |
 
-http://localhost:9870
+# Partie B — Exercices
 
-Permet de consulter l'état de HDFS, les DataNodes et les informations du système de fichiers.
+## Exercice 1 — Arborescence HDFS
 
-### ResourceManager
-
-http://localhost:8088
-
-Permet de consulter l'état de YARN, les ressources disponibles et les applications exécutées.
-
-## 12. Problème rencontré : port 9000 occupé
-
-Lors du démarrage du NameNode, l'erreur suivante est apparue :
-
-```text
-java.net.BindException: Address already in use
-```
-
-Identification du processus :
+Création du répertoire utilisateur HDFS :
 
 ```bash
-lsof -i :9000
+hdfs dfs -mkdir -p /user/guississ
+hdfs dfs -ls /user/guississ
 ```
 
-Le port 9000 était utilisé par PHP-FPM.
+## Exercice 2 — Premier job MapReduce
 
-Solution : modifier l'adresse du NameNode dans `core-site.xml` :
+Exécution de l'exemple `grep` fourni par Hadoop sur les fichiers XML de configuration :
 
-```xml
-<value>hdfs://localhost:9001</value>
+```bash
+hdfs dfs -mkdir -p input
+hdfs dfs -put $HADOOP_HOME/etc/hadoop/*.xml input
+
+hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-3.5.0.jar \
+  grep input output 'dfs[a-z.]+'
 ```
 
-Après cette modification, HDFS a démarré correctement.
+Le job s'est terminé avec succès. Le répertoire `output` contient les résultats et `_SUCCESS`.
 
-## ✅ État actuel
+## Exercice 3 — Transfert des données dans HDFS
 
-- [x] Java 17 installé et configuré
-- [x] Hadoop 3.5.0 installé
-- [x] Variables d'environnement configurées
-- [x] SSH localhost configuré
-- [x] Configuration Hadoop réalisée
-- [x] NameNode formaté
-- [x] HDFS démarré
-- [x] YARN démarré
-- [x] NameNode Web UI accessible
-- [x] ResourceManager Web UI accessible
-- [x] Processus Hadoop vérifiés avec `jps`
-- [x] HDFS testé avec `hdfs dfs -ls /`
+Datasets disponibles dans `data_light` :
 
-## 🚀 Suite du TP
+| Dataset  | Contenu                             |
+| -------- | ----------------------------------- |
+| `wp_20`  | 20 articles Wikipédia               |
+| `wp_200` | 200 articles Wikipédia              |
+| `socio`  | Dataset utilisé pour la suite du TP |
 
-- Manipulations HDFS
-- Import de données dans HDFS
-- Exécution de jobs MapReduce
-- WordCount
-- Analyse statistique BMI
+Les datasets `wp_20` et `wp_200` ont été transférés dans HDFS.
+
+## Exercice 4 — Bibliothèques Hadoop pour Java
+
+Les bibliothèques Hadoop sont disponibles sous :
+
+```text
+$HADOOP_HOME/share/hadoop/
+```
+
+API utilisée :
+
+```java
+org.apache.hadoop.mapreduce
+```
+
+Il s'agit de la nouvelle API MapReduce, contrairement à l'ancienne API `org.apache.hadoop.mapred`.
+
+## Exercice 5 — Mapper WordCount
+
+Le Mapper :
+
+1. lit une ligne de texte ;
+2. convertit le texte en minuscules ;
+3. découpe la ligne en mots ;
+4. ignore les tokens vides ;
+5. émet `(mot, 1)`.
+
+La tokenisation utilise `[^\\p{L}]+`, qui considère les caractères non alphabétiques comme séparateurs et prend en compte les lettres Unicode.
+
+## Exercice 6 — Reducer WordCount
+
+Le Reducer reçoit les valeurs associées à un mot, les additionne et produit :
+
+```text
+(mot, nombre_total_occurrences)
+```
+
+## Exercice 7 — Configuration du Job
+
+La méthode `main()` configure :
+
+- la `Configuration` ;
+- le `Job` ;
+- les classes Mapper et Reducer ;
+- les formats d'entrée et de sortie ;
+- les types de sortie ;
+- les chemins HDFS.
+
+Les chemins sont transmis en arguments : `args[0]` pour l'entrée et `args[1]` pour la sortie.
+
+---
+
+## Exercice 8 — Compilation et exécution de WordCount
+
+### Objectif
+
+Compiler notre programme MapReduce Java, créer une archive JAR et exécuter WordCount sur `wp_20`.
+
+### Compilation
+
+Depuis le dossier `src` :
+
+```bash
+cd ~/Documents/hadoop-tp1-configuration/src
+hadoop com.sun.tools.javac.Main WordCount.java
+```
+
+La compilation génère les classes Java :
+
+- `WordCount.class`
+- `WordCount$WordCountMapper.class`
+- `WordCount$WordCountReducer.class`
+
+### Création du JAR
+
+```bash
+jar cf wc.jar WordCount*.class
+```
+
+### Vérification de l'entrée HDFS
+
+```bash
+hdfs dfs -ls wp_20
+```
+
+### Exécution
+
+Si le répertoire de sortie existe déjà, le supprimer :
+
+```bash
+hdfs dfs -rm -r output
+```
+
+Lancer WordCount :
+
+```bash
+hadoop jar wc.jar WordCount wp_20 output
+```
+
+### Résultats
+
+Le job s'est terminé avec succès (`completed successfully`).
+
+| Compteur                               |  Valeur |
+| -------------------------------------- | ------: |
+| Fichiers en entrée                     |      20 |
+| Tâches Map                             |      20 |
+| Tâches Reduce                          |       1 |
+| Map input records                      |   1 003 |
+| Map output records                     |  35 968 |
+| Reduce output records / mots distincts |   6 672 |
+| Failed Shuffles                        |       0 |
+| Bytes Read                             | 235 808 |
+| Bytes Written                          |  73 713 |
+
+### Vérification des résultats
+
+```bash
+hdfs dfs -ls output
+hdfs dfs -cat output/part-r-00000
+```
+
+Le dossier contient `part-r-00000`, les résultats du Reducer, et `_SUCCESS`, qui confirme la réussite du job.
+
+Pour afficher seulement les premières lignes :
+
+```bash
+hdfs dfs -cat output/part-r-00000 | head -20
+```
+
+Exemples de résultats :
+
+```text
+a       159
+abord   3
+abondamment 1
+```
+
+Le résultat contient **6 672 mots distincts**.
+
+---
+
+## Exercice 9 — Analyse des logs et mesure du temps d'exécution
+
+### Objectif
+
+Analyser les logs Hadoop afin de relever le nombre de fichiers, de splits, de tâches Map et Reduce ainsi que leurs durées. Mesurer également le temps réel d'exécution.
+
+### Informations des logs
+
+Pour le dataset `wp_20` :
+
+```text
+Total input files to process : 20
+number of splits:20
+Launched map tasks=20
+Launched reduce tasks=1
+Total time spent by all map tasks (ms)=116848
+Total time spent by all reduce tasks (ms)=14203
+```
+
+### Temps cumulé des tâches
+
+| Phase  | Temps en ms | Temps en secondes |
+| ------ | ----------: | ----------------: |
+| Map    |     116 848 |         116,848 s |
+| Reduce |      14 203 |          14,203 s |
+
+Ces valeurs correspondent à la somme des durées des tâches, pas au temps global réellement écoulé.
+
+### Mesure du temps réel
+
+Supprimer l'ancien output, puis exécuter le programme avec `time` :
+
+```bash
+hdfs dfs -rm -r output
+time hadoop jar wc.jar WordCount wp_20 output
+```
+
+Résultat obtenu :
+
+```text
+6,93s user
+0,73s system
+20% cpu
+37,309 total
+```
+
+Le temps réel d'exécution est **37,309 secondes**.
+
+### Interprétation
+
+Les temps cumulés Map et Reduce sont supérieurs au temps réel, car plusieurs tâches Map peuvent s'exécuter en parallèle. Le temps cumulé représente la somme des durées des tâches, tandis que le temps réel mesure la durée totale du job.
+
+### Vérification avec YARN
+
+Interface : http://localhost:8088
+
+Informations observées :
+
+- 5 applications soumises ;
+- 5 applications terminées ;
+- 0 application en cours ;
+- 1 nœud actif ;
+- ResourceManager `STARTED` ;
+- Hadoop 3.5.0.
+
+---
+
+## Exercice 10 — Comparaison des performances
+
+### Objectif
+
+Comparer WordCount sur deux datasets de tailles différentes : `wp_20` et `wp_200`.
+
+Les indicateurs étudiés sont le nombre de fichiers, de splits, de tâches Map/Reduce et les temps de traitement.
+
+### Dataset `wp_20`
+
+```bash
+hdfs dfs -rm -r output
+time hadoop jar wc.jar WordCount wp_20 output
+```
+
+| Indicateur          |  Résultat |
+| ------------------- | --------: |
+| Fichiers            |        20 |
+| Splits              |        20 |
+| Maps                |        20 |
+| Reducers            |         1 |
+| Temps Map cumulé    | 116,848 s |
+| Temps Reduce cumulé |  14,203 s |
+| Temps réel          |  37,309 s |
+
+### Dataset `wp_200`
+
+```bash
+hdfs dfs -rm -r output
+time hadoop jar wc.jar WordCount wp_200 output
+```
+
+| Indicateur                             |                Résultat |
+| -------------------------------------- | ----------------------: |
+| Fichiers                               |                     200 |
+| Splits                                 |                     200 |
+| Maps                                   |                     200 |
+| Reducers                               |                       1 |
+| Map output records                     |                 483 649 |
+| Reduce output records / mots distincts |                  34 465 |
+| Temps Map cumulé                       |             1 581,719 s |
+| Temps Reduce cumulé                    |               277,008 s |
+| Temps réel                             | 348,25 s (≈ 5 min 48 s) |
+
+### Tableau comparatif
+
+| Dataset  | Fichiers | Splits | Maps | Reducers |  Map cumulé | Reduce cumulé | Temps réel |
+| -------- | -------: | -----: | ---: | -------: | ----------: | ------------: | ---------: |
+| `wp_20`  |       20 |     20 |   20 |        1 |   116,848 s |      14,203 s |   37,309 s |
+| `wp_200` |      200 |    200 |  200 |        1 | 1 581,719 s |     277,008 s |   348,25 s |
+
+### Interprétation
+
+`wp_200` contient 10 fois plus de fichiers que `wp_20`.
+
+Le temps réel passe de 37,309 secondes à 348,25 secondes :
+
+```text
+348,25 / 37,309 ≈ 9,33
+```
+
+Le traitement de `wp_200` est donc environ **9,33 fois plus long**.
+
+L'augmentation du volume de données entraîne davantage de splits et de tâches Map. Hadoop répartit les traitements, mais le lancement et la gestion des tâches ont également un coût. Dans notre environnement local, le temps total augmente donc avec la taille du dataset.
+
+Les temps cumulés Map et Reduce ne représentent pas le temps réel du job, notamment en raison de l'exécution parallèle des tâches Map.
+
+### Conclusion
+
+Cette expérience permet de constater l'impact de la taille des données sur les performances d'un job MapReduce et de comprendre le rôle du parallélisme.
+
+---
+
+## Conclusion générale
+
+Ce TP nous a permis de :
+
+- installer et configurer Hadoop en mode pseudo-distribué ;
+- manipuler HDFS ;
+- exécuter un premier job MapReduce ;
+- développer, compiler et exécuter un programme MapReduce Java ;
+- analyser les logs et les compteurs Hadoop ;
+- mesurer les temps d'exécution ;
+- comparer les performances selon la taille des datasets.
 
 ## Auteur
-Mohamed Guissi
-Master 2 — Data Analytics & Big Data  
-Avignon Université
 
+**Mohamed Guissi**  
+Master 2 — ILSEN  
+Avignon Université
